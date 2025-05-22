@@ -1,0 +1,10 @@
+name: meshquake
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - requests
+  - pytz
+  - pip
+  - pip:
+      - meshtastic

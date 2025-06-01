@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  meshquake:
+    build: .
+    volumes:
+      - ./data:/app/data
+    working_dir: /app
+    environment:
+      - DATA_DIR=/app/data
+    command: >
+      prod --zip 94040 --min-mag 3.0 --max-distance 100
+      --radio-ip 192.168.69.211 --ch-index 1
+    restart: unless-stopped

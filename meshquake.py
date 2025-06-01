@@ -7,15 +7,18 @@ import logging
 from datetime import datetime
 import pytz
 from math import radians, cos, sin, asin, sqrt
+import os
 
 # Config defaults
+DATA_DIR = os.getenv("DATA_DIR", "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "earthquakes.db")
+LOG_FILE = os.path.join(DATA_DIR, "meshquake_error.log")
 USGS_FEED_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
 DEFAULT_MODE = "prod"
 DEFAULT_MIN_MAGNITUDE = 0.0
 DEFAULT_ZIP = None
 DEFAULT_MAX_DISTANCE_MILES = 120
-DB_PATH = "earthquakes.db"
-LOG_FILE = "meshquake_error.log"
 LOCATION_LABEL = "SJ"
 TABLE_NAME = "processed_quakes"
 

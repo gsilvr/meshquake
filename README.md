@@ -1,6 +1,6 @@
-# Meshquake
+# Meshquake (Docker Edition)
 
-**Meshquake** is a Python script that monitors recent earthquakes from the USGS and sends nearby quake alerts over Meshtastic mesh radios.
+Meshquake monitors real-time earthquakes via USGS and sends alerts over Meshtastic mesh radios.
 
 ---
 
@@ -8,155 +8,97 @@
 
 - Polls the USGS real-time earthquake feed
 - Filters quakes by:
-  - Location (via ZIP code)
-  - Radius (miles from center)
+  - ZIP code location
+  - Radius (in miles)
   - Minimum magnitude
-- Formats messages for delivery
-- Sends messages to Meshtastic devices via CLI
-- Logs and stores quake history using SQLite
+- Sends messages via Meshtastic CLI
+- Stores quake history in SQLite
+- Logs activity and errors
+- Fully containerized with Docker + Compose
+- Persistent logs and DB outside container
 
 ---
 
-## 📦 Installation Instructions
+## 🚀 One-Click Deployment
 
-### 1. Install [Conda](https://docs.conda.io/en/latest/miniconda.html)
+### Prerequisites
 
-Meshquake runs best in a clean Conda environment.
+- Docker
+- Docker Compose
 
----
-
-### 2. Clone the repository
+### Clone and Run
 
 ```bash
 git clone https://github.com/gsilvr/meshquake.git
 cd meshquake
+git checkout meshquake-docker
+mkdir -p data
+docker compose build
+docker compose up -d
 ```
+
+This will:
+
+- Build the container
+- Persist logs and DB to `./data/`
+- Run in `prod` mode with default flags (see below)
 
 ---
 
-### 3. Create the environment
+## ⚙️ Configuration
 
-Create a Conda environment using this minimal `environment.yml` file:
+Edit `docker-compose.yml` to change runtime flags.
+
+Example:
 
 ```yaml
-name: meshquake
-channels:
-  - defaults
-dependencies:
-  - python=3.10
-  - requests
-  - pytz
-  - pip
-  - pip:
-      - meshtastic
-```
-
-Then create and activate it:
-
-```bash
-conda env create -f environment.yml
-conda activate meshquake
+command: >
+  prod --zip 95014 --min-mag 1.0 --max-distance 100
+  --radio-ip 192.168.69.211 --ch-index 1
 ```
 
 ---
 
-## ⚙️ Configuration Overview
+## 🔁 Runtime Modes
 
-All configuration is done via command-line flags — no config files needed.
-
-- Earthquake data: USGS GeoJSON feed (no API key required)
-- Location filtering: Based on ZIP code and max distance
-- Message delivery: Meshtastic CLI (`meshtastic --sendtext`)
-- Logging: `meshquake_error.log`
-- Database: SQLite (`earthquakes.db`)
+| Mode       | Description                                      |
+|------------|--------------------------------------------------|
+| `dev`      | Dry run, log only                                |
+| `devsend`  | Sends to test radio, logs to separate dev table  |
+| `prod`     | Full runtime, persistent logging + DB            |
 
 ---
 
-## 🚀 Usage
+## 🧾 Flags
 
-```bash
-python3 meshquake.py [mode] [flags]
+| Flag             | Description                                |
+|------------------|--------------------------------------------|
+| `--zip`          | ZIP code for center location (required)    |
+| `--min-mag`      | Minimum quake magnitude (e.g. `1.5`)       |
+| `--max-distance` | Max radius in miles (default: 120)         |
+| `--radio-ip`     | Target Meshtastic node IP                  |
+| `--ch-index`     | Channel index for sending (default: 0)     |
+
+---
+
+## 🗃 Persistent Output
+
+All output is stored in the `./data` directory:
+
+- `meshquake_error.log` — logs
+- `earthquakes.db` — SQLite DB of quake events
+
+---
+
+## 📤 Example Output
+
 ```
-
----
-
-### 🧪 Modes
-
-| Mode       | Description                                                                 |
-|------------|-----------------------------------------------------------------------------|
-| `dev`      | Dry run — shows what would be sent, logs but does not transmit             |
-| `devsend`  | Sends messages to your test radio, but logs to a separate dev DB           |
-| `prod`     | Production mode — runs continuously, sends real messages, logs permanently |
-
----
-
-### 🛠 Available Flags
-
-| Flag              | Description                                              |
-|-------------------|----------------------------------------------------------|
-| `--zip`           | ZIP code to use as center location (required)           |
-| `--min-mag`       | Minimum earthquake magnitude (e.g. `--min-mag 1.5`)      |
-| `--max-distance`  | Maximum distance (in miles) from center (default: 120)   |
-| `--radio-ip`      | IP of the target Meshtastic node (e.g. `192.168.69.211`) |
-| `--ch-index`      | Meshtastic channel index (default: `0`)                  |
-
----
-
-## ✅ Examples
-
-### Show upcoming message (dry run)
-
-```bash
-python3 meshquake.py dev --zip 95014 --min-mag 1.0
-```
-
----
-
-### Send to a dev radio (but don't write to prod DB)
-
-```bash
-python3 meshquake.py devsend --zip 95014 --min-mag 1.0 --radio-ip 192.168.69.211 --ch-index 1
-```
-
----
-
-### Full production run
-
-```bash
-python3 meshquake.py prod --zip 95014 --min-mag 1.0 --max-distance 100 --radio-ip 192.168.69.211 --ch-index 1
-```
-
-Runs indefinitely, polling the USGS every 60 seconds.
-
----
-
-### Running with `cron` (every minute)
-
-```cron
-* * * * * /path/to/conda/envs/meshquake/bin/python /path/to/meshquake/meshquake.py prod --zip 95014 --min-mag 1.0 --radio-ip 192.168.69.211 --ch-index 1 --max-distance 100 >> /dev/null 2>&1
-```
-
----
-
-## 📂 Output Files
-
-| File                 | Purpose                            |
-|----------------------|------------------------------------|
-| `meshquake_error.log`| All logs (INFO, ERROR)             |
-| `earthquakes.db`     | SQLite DB of processed quake events|
-| `processed_quakes_dev` | Separate table used for dev modes |
-
----
-
-## 📨 Example Output
-
-```text
 M2.3 88mi from Cupertino: 3 km W of Cobb, CA, 05-21 22:01 PDT
 ```
 
-If over 200 bytes, it's chunked like this:
+Long messages are chunked into:
 
-```text
+```
 Part 1: M2.3 88mi from Cupertino
 Part 2: 3 km W of Cobb, CA
 Part 3: 05-21 22:01 PDT
@@ -164,43 +106,33 @@ Part 3: 05-21 22:01 PDT
 
 ---
 
-## 🔁 Reset / Cleanup
+## 🧹 Reset State
 
-To reset DB and logs:
+To clear logs and DB:
 
 ```bash
-rm earthquakes.db meshquake_error.log
+rm -f data/earthquakes.db data/meshquake_error.log
 ```
 
 ---
 
-## 🧰 Dependencies
-
-| Package     | Purpose              |
-|-------------|----------------------|
-| `requests`  | USGS + ZIP API calls |
-| `pytz`      | Timezone formatting  |
-| `meshtastic`| Mesh radio CLI       |
-
-Install with:
+## 🛑 Stop the Service
 
 ```bash
-conda install requests pytz pip
-pip install meshtastic
+docker compose down
 ```
-
-Or use the provided `environment.yml`.
 
 ---
 
-## 🧼 Maintenance
+## 🛠 Maintenance Notes
 
-- Logs rotate manually — monitor `meshquake_error.log` size
-- DB stores quake IDs to prevent repeat alerts
-- `dev` and `devsend` modes are safe for testing
+- Logs rotate manually (watch file size)
+- DB stores quake IDs to avoid duplicates
+- `prod` polls every 60 seconds
+- All files persist under `./data/`
 
 ---
 
 ## ✅ Status
 
-Stable • Ready for real-world deployment
+Stable • Dockerized • Ready for unattended use

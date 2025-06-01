@@ -28,7 +28,7 @@ Meshquake runs best in a clean Conda environment.
 ### 2. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/meshquake.git
+git clone https://github.com/gsilvr/meshquake.git
 cd meshquake
 ```
 

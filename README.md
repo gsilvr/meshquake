@@ -19,7 +19,7 @@ Meshquake monitors real-time earthquakes via USGS and sends alerts over Meshtast
 
 ---
 
-## 🚀 One-Click Deployment
+## 🚀 Deployment
 
 ### Prerequisites
 
@@ -31,10 +31,9 @@ Meshquake monitors real-time earthquakes via USGS and sends alerts over Meshtast
 ```bash
 git clone https://github.com/gsilvr/meshquake.git
 cd meshquake
-git checkout meshquake-docker
 mkdir -p data
-docker compose build
-docker compose up -d
+docker-compose build
+docker-compose up -d
 ```
 
 This will:
@@ -42,6 +41,7 @@ This will:
 - Build the container
 - Persist logs and DB to `./data/`
 - Run in `prod` mode with default flags (see below)
+- You will need to wait for a quake to actually happen in order to see if it's working
 
 ---
 
@@ -119,7 +119,7 @@ rm -f data/earthquakes.db data/meshquake_error.log
 ## 🛑 Stop the Service
 
 ```bash
-docker compose down
+docker-compose down
 ```
 
 ---

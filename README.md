@@ -11,7 +11,8 @@ Meshquake monitors real-time earthquakes via USGS and sends alerts over Meshtast
   - ZIP code location
   - Radius (in miles)
   - Minimum magnitude
-- Sends messages via Meshtastic CLI
+- Sends formatted messages with emojis via Meshtastic CLI
+- Announces initialization on startup with monitoring parameters
 - Stores quake history in SQLite
 - Logs activity and errors
 - Fully containerized with Docker + Compose
@@ -41,6 +42,7 @@ This will:
 - Build the container
 - Persist logs and DB to `./data/`
 - Run in `prod` mode with default flags (see below)
+- Send an initialization message to the mesh on startup
 - You will need to wait for a quake to actually happen in order to see if it's working
 
 ---
@@ -92,16 +94,40 @@ All output is stored in the `./data` directory:
 
 ## 📤 Example Output
 
-```
-M2.3 88mi from Cupertino: 3 km W of Cobb, CA, 05-21 22:01 PDT
-```
+### Initialization Message
 
-Long messages are chunked into:
+On startup (in `prod` and `devsend` modes), meshquake sends:
 
 ```
-Part 1: M2.3 88mi from Cupertino
-Part 2: 3 km W of Cobb, CA
-Part 3: 05-21 22:01 PDT
+🌎 Meshquake initialized! 📡
+Monitoring near Mt View
+M1.0+ | 120mi
+```
+
+### Earthquake Alerts
+
+Earthquake alerts are formatted with emojis and multi-line formatting:
+
+```
+🌎 Earthquake Alert!
+📍 M2.3 | 88mi from Mt View
+🗺️ 3 km W of Cobb, CA
+⏰ 05-21 22:01 PDT
+```
+
+Long messages (>200 bytes) are automatically chunked into separate messages:
+
+```
+🌎 Earthquake Alert!
+📍 M2.3 | 88mi from Mt View
+```
+
+```
+🗺️ 3 km W of Cobb, CA
+```
+
+```
+⏰ 05-21 22:01 PDT
 ```
 
 ---

@@ -167,11 +167,14 @@ def process_earthquakes(data, mode="prod", radio_ip=None, min_mag=0.0, channel=0
         short_date = datetime.fromtimestamp(time_epoch, pytz.timezone("America/Los_Angeles")).strftime("%m-%d %H:%M")
         distance = haversine(lat, lon, center_lat, center_lon)
 
-        part1 = f"M{magnitude:.1f} {distance:.0f}mi from {LOCATION_LABEL}"
-        part2 = place
-        part3 = f"{short_date} PDT"
-        full_message = f"{part1}: {part2}, {part3}"
+        # Format with emojis and multi-line
+        full_message = f"🌎 Earthquake Alert!\n📍 M{magnitude:.1f} | {distance:.0f}mi from {LOCATION_LABEL}\n🗺️ {place}\n⏰ {short_date} PDT"
         message_bytes = len(full_message.encode("utf-8"))
+        
+        # Prepare parts for chunking if needed
+        part1 = f"🌎 Earthquake Alert!\n📍 M{magnitude:.1f} | {distance:.0f}mi from {LOCATION_LABEL}"
+        part2 = f"🗺️ {place}"
+        part3 = f"⏰ {short_date} PDT"
 
         logging.info(f"Matched quake: {quake_id} -> {full_message}")
         mark_quake_processed(quake_id, full_message, int(time_epoch))
@@ -190,11 +193,11 @@ def process_earthquakes(data, mode="prod", radio_ip=None, min_mag=0.0, channel=0
         if message_bytes <= 200:
             send_meshtastic_message(full_message, target_ip=radio_ip, channel=channel)
         else:
-            send_meshtastic_message(f"Part 1: {part1}", target_ip=radio_ip, channel=channel)
+            send_meshtastic_message(part1, target_ip=radio_ip, channel=channel)
             time.sleep(4)
-            send_meshtastic_message(f"Part 2: {part2}", target_ip=radio_ip, channel=channel)
+            send_meshtastic_message(part2, target_ip=radio_ip, channel=channel)
             time.sleep(4)
-            send_meshtastic_message(f"Part 3: {part3}", target_ip=radio_ip, channel=channel)
+            send_meshtastic_message(part3, target_ip=radio_ip, channel=channel)
 
         return  # Send/store one quake per run
 
@@ -260,6 +263,21 @@ def main():
         lat, lon, city = lookup_zip(zip_code)
         LOCATION_LABEL = city
         logging.info(f"Resolved location: {LOCATION_LABEL} @ ({lat}, {lon})")
+
+    # Abbreviate location label
+    if LOCATION_LABEL == "Mountain View":
+        LOCATION_LABEL = "Mt View"
+
+    # Send initialization message in prod and devsend modes
+    if mode in ["prod", "devsend"]:
+        init_message = f"🌎 Meshquake initialized! 📡\nMonitoring near {LOCATION_LABEL}\nM{min_mag:.1f}+ | {max_distance:.0f}mi"
+        init_bytes = len(init_message.encode("utf-8"))
+        if init_bytes <= 200:
+            send_meshtastic_message(init_message, target_ip=radio_ip, channel=channel)
+        else:
+            # Fallback: shorter version if too long
+            init_message = f"🌎 Meshquake init! 📡\n{LOCATION_LABEL}\nM{min_mag:.1f}+ {max_distance:.0f}mi"
+            send_meshtastic_message(init_message, target_ip=radio_ip, channel=channel)
 
     if mode not in ["dev", "prod", "devsend"]:
         print("Usage: python3 meshquake.py [dev|prod|devsend] [--radio-ip <ip>] [--zip <zipcode>] [--min-mag <value>] [--ch-index <int>] [--max-distance <miles>]")

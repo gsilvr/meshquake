@@ -15,6 +15,7 @@ Meshquake monitors real-time earthquakes via USGS and sends alerts over Meshtast
 - Announces initialization on startup with monitoring parameters
 - Stores quake history in SQLite
 - Logs activity and errors
+- Sends a periodic test message every 12 hours via cron
 - Fully containerized with Docker + Compose
 - Persistent logs and DB outside container
 
@@ -49,15 +50,21 @@ This will:
 
 ## ⚙️ Configuration
 
-Edit `docker-compose.yml` to change runtime flags.
+Edit `docker-compose.yml` to change runtime flags and environment variables.
 
 Example:
 
 ```yaml
+environment:
+  - DATA_DIR=/app/data
+  - RADIO_IP=192.168.69.8
+  - CH_INDEX=2
 command: >
   prod --zip 95014 --min-mag 1.0 --max-distance 100
-  --radio-ip 192.168.69.211 --ch-index 1
+  --radio-ip 192.168.69.8 --ch-index 2
 ```
+
+The `RADIO_IP` and `CH_INDEX` environment variables are used by the cron-based test message (see below). Make sure they match the values in `command`.
 
 ---
 
@@ -128,6 +135,27 @@ Long messages (>200 bytes) are automatically chunked into separate messages:
 
 ```
 ⏰ 05-21 22:01 PDT
+```
+
+---
+
+## 📡 Periodic Test Message
+
+A cron job inside the container sends a test message over Meshtastic every 12 hours (midnight and noon). This helps confirm the radio link is alive even when no earthquakes are occurring.
+
+The message: `Meshquake Test - https://bayme.sh/ Discord for any questions`
+
+To verify cron is running:
+
+```bash
+docker exec meshquake-meshquake-1 pgrep cron
+docker exec meshquake-meshquake-1 crontab -l
+```
+
+To manually trigger the test message:
+
+```bash
+docker exec meshquake-meshquake-1 /app/send_test_message.sh
 ```
 
 ---

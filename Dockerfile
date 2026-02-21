@@ -6,11 +6,14 @@ WORKDIR /app
 # Copy app files
 COPY environment.yml .
 COPY meshquake.py .
+COPY entrypoint.sh .
+COPY send_test_message.sh .
+RUN chmod +x entrypoint.sh send_test_message.sh
 
 # --- TIMEZONE FIX ---
 ENV TZ=America/Los_Angeles
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata cron && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 # ---------------------
@@ -25,4 +28,4 @@ SHELL ["conda", "run", "-n", "meshquake", "/bin/bash", "-c"]
 ENV DATA_DIR=/app/data
 
 # Run the app in LA time
-ENTRYPOINT ["conda", "run", "-n", "meshquake", "python", "meshquake.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]

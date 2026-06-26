@@ -123,17 +123,26 @@ def fetch_earthquake_data():
 
 # --------------------- CLI Message Send ---------------------
 
+SEND_TIMEOUT_SECONDS = 60
+
 def send_meshtastic_message(text, target_ip=None, channel=0):
+    """Send one text message via the meshtastic CLI. Returns True on success, False otherwise."""
     cmd = ["meshtastic"]
     if target_ip:
         cmd.extend(["-t", target_ip])
     cmd.extend(["--ch-index", str(channel), "--sendtext", text])
     try:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, timeout=SEND_TIMEOUT_SECONDS)
         logging.info(f"Sent message (ch {channel}): {text}")
+        return True
     except subprocess.CalledProcessError as e:
         logging.error(f"Meshtastic send failed: {e}")
         logging.error(f"Failed message: {text}")
+        return False
+    except subprocess.TimeoutExpired as e:
+        logging.error(f"Meshtastic send timed out after {SEND_TIMEOUT_SECONDS}s: {e}")
+        logging.error(f"Failed message: {text}")
+        return False
 
 # --------------------- Main Processing ---------------------
 
@@ -158,31 +167,37 @@ def process_earthquakes(data, mode="prod", radio_ip=None, min_mag=0.0, channel=0
         if not is_within_radius(lat, lon, center_lat, center_lon, radius=max_distance):
             continue
 
-        magnitude = properties.get("mag", 0)
+        # USGS may report a null magnitude; .get's default only covers missing keys,
+        # so coerce None to 0 to avoid a TypeError on the comparison below.
+        magnitude = properties.get("mag")
+        if magnitude is None:
+            magnitude = 0
         if magnitude < min_mag:
             continue
 
         place = properties.get("place", "Unknown location")
         time_epoch = properties.get("time", 0) / 1000
-        short_date = datetime.fromtimestamp(time_epoch, pytz.timezone("America/Los_Angeles")).strftime("%m-%d %H:%M")
+        local_dt = datetime.fromtimestamp(time_epoch, pytz.timezone("America/Los_Angeles"))
+        short_date = local_dt.strftime("%m-%d %H:%M")
+        tz_abbr = local_dt.strftime("%Z")  # PDT or PST depending on the date
         distance = haversine(lat, lon, center_lat, center_lon)
 
         # Format with emojis and multi-line
-        full_message = f"🌎 Earthquake Alert!\n📍 M{magnitude:.1f} | {distance:.0f}mi from {LOCATION_LABEL}\n🗺️ {place}\n⏰ {short_date} PDT"
+        full_message = f"🌎 Earthquake Alert!\n📍 M{magnitude:.1f} | {distance:.0f}mi from {LOCATION_LABEL}\n🗺️ {place}\n⏰ {short_date} {tz_abbr}"
         message_bytes = len(full_message.encode("utf-8"))
-        
+
         # Prepare parts for chunking if needed
         part1 = f"🌎 Earthquake Alert!\n📍 M{magnitude:.1f} | {distance:.0f}mi from {LOCATION_LABEL}"
         part2 = f"🗺️ {place}"
-        part3 = f"⏰ {short_date} PDT"
+        part3 = f"⏰ {short_date} {tz_abbr}"
 
         logging.info(f"Matched quake: {quake_id} -> {full_message}")
-        mark_quake_processed(quake_id, full_message, int(time_epoch))
 
         if mode == "dev":
             print("[DEV MODE]")
             print("Most recent matching message (not sent):")
             print(full_message)
+            mark_quake_processed(quake_id, full_message, int(time_epoch))
             print("\nAll simulated stored messages (dev table):\n")
             rows = fetch_all_messages()
             for r in rows:
@@ -191,15 +206,24 @@ def process_earthquakes(data, mode="prod", radio_ip=None, min_mag=0.0, channel=0
             return
 
         if message_bytes <= 200:
-            send_meshtastic_message(full_message, target_ip=radio_ip, channel=channel)
+            sent = send_meshtastic_message(full_message, target_ip=radio_ip, channel=channel)
         else:
-            send_meshtastic_message(part1, target_ip=radio_ip, channel=channel)
-            time.sleep(4)
-            send_meshtastic_message(part2, target_ip=radio_ip, channel=channel)
-            time.sleep(4)
-            send_meshtastic_message(part3, target_ip=radio_ip, channel=channel)
+            sent = send_meshtastic_message(part1, target_ip=radio_ip, channel=channel)
+            if sent:
+                time.sleep(4)
+                send_meshtastic_message(part2, target_ip=radio_ip, channel=channel)
+                time.sleep(4)
+                send_meshtastic_message(part3, target_ip=radio_ip, channel=channel)
 
-        return  # Send/store one quake per run
+        # Only record the quake as processed once it was actually delivered, so a failed
+        # send (e.g. unreachable radio) is retried on the next polling cycle instead of
+        # being silently lost.
+        if sent:
+            mark_quake_processed(quake_id, full_message, int(time_epoch))
+        else:
+            logging.warning(f"Send failed for {quake_id}; will retry next cycle (not marked processed)")
+
+        return  # Process one quake per run
 
 # --------------------- Argument Parser ---------------------
 

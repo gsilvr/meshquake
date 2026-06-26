@@ -57,11 +57,11 @@ Example:
 ```yaml
 environment:
   - DATA_DIR=/app/data
-  - RADIO_IP=192.168.69.8
+  - RADIO_IP=192.168.69.7
   - CH_INDEX=2
 command: >
   prod --zip 95014 --min-mag 1.0 --max-distance 100
-  --radio-ip 192.168.69.8 --ch-index 2
+  --radio-ip 192.168.69.7 --ch-index 2
 ```
 
 The `RADIO_IP` and `CH_INDEX` environment variables are used by the cron-based test message (see below). Make sure they match the values in `command`.

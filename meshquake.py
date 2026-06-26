@@ -132,15 +132,27 @@ def send_meshtastic_message(text, target_ip=None, channel=0):
         cmd.extend(["-t", target_ip])
     cmd.extend(["--ch-index", str(channel), "--sendtext", text])
     try:
-        subprocess.run(cmd, check=True, timeout=SEND_TIMEOUT_SECONDS)
-        logging.info(f"Sent message (ch {channel}): {text}")
+        result = subprocess.run(cmd, check=True, timeout=SEND_TIMEOUT_SECONDS,
+                                capture_output=True, text=True)
+        # Exit 0 only means the local node accepted/queued the packet over TCP; it
+        # is NOT an RF/delivery confirmation. Log the CLI's own "Sending text
+        # message ... on channelIndex:N" line so the target channel is recorded.
+        cli_status = (result.stdout or "").strip().replace("\n", " | ")
+        logging.info(f"Queued to radio (ch {channel}): {text}")
+        if cli_status:
+            logging.info(f"meshtastic CLI: {cli_status}")
         return True
     except subprocess.CalledProcessError as e:
         logging.error(f"Meshtastic send failed: {e}")
+        if e.stderr:
+            logging.error(f"meshtastic stderr: {e.stderr.strip()}")
         logging.error(f"Failed message: {text}")
         return False
     except subprocess.TimeoutExpired as e:
-        logging.error(f"Meshtastic send timed out after {SEND_TIMEOUT_SECONDS}s: {e}")
+        logging.error(f"Meshtastic send timed out after {SEND_TIMEOUT_SECONDS}s (radio unreachable?): {e}")
+        if e.stderr:
+            stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr
+            logging.error(f"meshtastic stderr: {stderr.strip()}")
         logging.error(f"Failed message: {text}")
         return False
 

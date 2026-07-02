@@ -139,11 +139,11 @@ Long messages (>200 bytes) are automatically chunked into separate messages:
 
 ---
 
-## 📡 Periodic Test Message
+## 📡 Periodic Heartbeat Message
 
-A cron job inside the container sends a test message over Meshtastic every 12 hours (midnight and noon). This helps confirm the radio link is alive even when no earthquakes are occurring.
+A cron job inside the container sends a heartbeat message over Meshtastic once a day at noon. This helps confirm the radio link is alive even when no earthquakes are occurring.
 
-The message: `Meshquake Test - https://bayme.sh/ Discord for any questions`
+The message: `Meshquake Heartbeat - https://bayme.sh/ Discord for any questions`
 
 To verify cron is running:
 

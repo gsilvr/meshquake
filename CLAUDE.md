@@ -54,8 +54,8 @@ Messages are sent by shelling out to the `meshtastic` CLI tool via `subprocess.r
 
 ### Container Setup
 - **Dockerfile**: miniconda3 base → conda env from `environment.yml` → cron + tzdata installed
-- **entrypoint.sh**: installs cron job (12-hour test messages), starts cron daemon, then `exec`s the Python app as PID 1
-- **send_test_message.sh**: cron-triggered script that sends a test message via meshtastic CLI
+- **entrypoint.sh**: installs cron job (daily heartbeat message at noon), starts cron daemon, then `exec`s the Python app as PID 1
+- **send_test_message.sh**: cron-triggered script that sends a heartbeat message via meshtastic CLI
 - `RADIO_IP` and `CH_INDEX` env vars in docker-compose.yml must match the `command:` flags (env vars are used by cron, flags by the Python app)
 
 ### Key Globals
